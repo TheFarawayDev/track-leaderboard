@@ -1,57 +1,47 @@
-import fs from 'fs';
-import path from 'path';
+async function submitTime() {
+  // Get the activation status
+  const activationStatus = await fetch(`${SERVER}/api/activate`);
+  const data = await activationStatus.json();
 
-const MIN_TIME = { mile: 210, halfmile: 90, quartermile: 40 };
-const MAX_TIME = { mile: 900, halfmile: 600, quartermile: 300 };
-const sessionFile = path.join(process.cwd(), 'data', 'session.json');
+  // Get the user's name and the time they want to submit
+  const userName = document.getElementById('username').value;
+  const userTime = document.getElementById('time').value;
+  const distance = document.getElementById('distance').value; // 'mile', 'half', 'quarter'
 
-// Get current day in YYYY-MM-DD
-const today = () => new Date().toISOString().split('T')[0];
-
-export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).end();
-
-  const { distance } = req.query;
-  const { name, time } = req.body;
-  const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket?.remoteAddress;
-
-  if (!distance || !name || typeof time !== 'number') {
-    return res.status(400).json({ message: 'Missing data.' });
+  // Ensure that the form fields are filled
+  if (!userName || !userTime || !distance) {
+    alert('Please fill in all fields.');
+    return;
   }
 
-  const now = Date.now();
-  const sessions = fs.existsSync(sessionFile) ? JSON.parse(fs.readFileSync(sessionFile)) : {};
-  const active = sessions[distance] && now < sessions[distance];
-  if (!active) return res.status(403).json({ message: 'Submission not active for this event.' });
+  // Check if the requested distance is activated
+  if (data.success && data.distance === distance) {
+    // Proceed to submit the time if the distance is activated
+    const timeData = {
+      name: userName,
+      time: userTime,
+      distance: distance
+    };
 
-  if (time < MIN_TIME[distance] || time > MAX_TIME[distance]) {
-    return res.status(400).json({ message: 'Unrealistic time submitted.' });
-  }
-
-  const file = path.join(process.cwd(), 'data', `${distance}.json`);
-  const list = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file)) : [];
-
-  const todayStr = today();
-  const existingName = list.find(entry => entry.name.toLowerCase() === name.toLowerCase());
-  const ipMatch = list.find(entry => entry.ip === ip && entry.lastSubmit === todayStr);
-
-  if ((existingName && existingName.lastSubmit === todayStr) || ipMatch) {
-    return res.status(429).json({ message: 'You already submitted today.' });
-  }
-
-  if (existingName) {
-    if (time < existingName.time) {
-      existingName.bestTime = existingName.time;
-      existingName.time = time;
-    } else if (!existingName.bestTime || time < existingName.bestTime) {
-      existingName.bestTime = time;
-    }
-    existingName.lastSubmit = todayStr;
-    existingName.ip = ip;
+    // Submit the time to the server
+    await fetch(`${SERVER}/api/submit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(timeData)
+    }).then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          alert('Time submitted successfully!');
+        } else {
+          alert('Submission failed.');
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert('There was an error submitting the time.');
+      });
   } else {
-    list.push({ name, time, ip, lastSubmit: todayStr });
+    // If the distance is not activated
+    alert(`Activation for ${distance} is not currently active.`);
   }
-
-  fs.writeFileSync(file, JSON.stringify(list, null, 2));
-  res.status(200).json({ message: 'Time submitted successfully.' });
 }
