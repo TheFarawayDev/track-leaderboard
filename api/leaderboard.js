@@ -4,7 +4,7 @@ import fs from 'fs'; // Use ES module syntax for fs
 import path from 'path';
 import { fileURLToPath } from 'url'; //Needed for __dirname
 
-const uri = `mongodb+srv://${process.env.MONGODB_USER}:${process.env.MONGODB_PASSWORD}@${process.env.MONGODB_CLUSTER}/track_times?retryWrites=true&w=majority`;
+const uri = `mongodb+srv://LoserBot:<NbmEiJZ88zPEHKoY>@cluster0.mzefwzd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
