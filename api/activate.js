@@ -9,7 +9,7 @@ export default function handler(req, res) {
     return res.status(405).json({ message: 'Method Not Allowed' });
   }
 
-  const { command } = req.body;
+  const { command, cancel } = req.body;
   const now = Date.now();
 
   // Expire outdated activations
@@ -19,7 +19,17 @@ export default function handler(req, res) {
     }
   }
 
-  // Handle 2025 commands
+  // Cancel early command - reset the activation state for a specific distance
+  if (cancel) {
+    if (activationState[cancel]) {
+      activationState[cancel] = null;
+      return res.status(200).json({ success: true, message: `${cancel} activation has been canceled.` });
+    } else {
+      return res.status(400).json({ success: false, message: `No active ${cancel} activation to cancel.` });
+    }
+  }
+
+  // Handle activation commands (2025 specific commands)
   if (command === 'MILE25') {
     activationState.mile = now + 24 * 60 * 60 * 1000;
     return res.status(200).json({ success: true, distance: 'mile' });
