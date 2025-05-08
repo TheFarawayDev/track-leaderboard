@@ -1,3 +1,4 @@
+// api/leaderboard.js
 const { MongoClient, ServerApiVersion } = require('mongodb');
 const uri = `mongodb+srv://${process.env.MONGODB_USER}:${process.env.MONGODB_PASSWORD}@${process.env.MONGODB_CLUSTER}/track_times?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, {
@@ -121,50 +122,55 @@ async function loadInitialData(db, collection) {
     }
 
   // Process each file.  Use path.join to handle relative paths correctly
-  await processFile(path.join(__dirname, '../data/mile.json'), LEADERBOARD_TYPES.MILE);
-  await processFile(path.join(__dirname, '../data/halfmile.json'), LEADERBOARD_TYPES.HALF_MILE);
+  try{
+    await processFile(path.join(__dirname, '../data/mile.json'), LEADERBOARD_TYPES.MILE);
+    await processFile(path.join(__dirname, '../data/halfmile.json'), LEADERBOARD_TYPES.HALF_MILE);
 
-    // For quartermile.json, we need to determine if it's 400m or 800m based on the data
-    const quarterMileData = JSON.parse(fs.readFileSync(path.join(__dirname, '../data/quartermile.json'), 'utf8'));
-    let distanceType;
-    if(quarterMileData.length > 0){
-        const firstTime = quarterMileData[0].time;
-        const seconds = timeToSeconds(firstTime);
-        if (seconds !== null) {
-            if (seconds < 120) { //Roughly 2 minutes
-                distanceType = '400m';
-            }
-            else{
-                distanceType = '800m'
-            }
-        }
+      // For quartermile.json, we need to determine if it's 400m or 800m based on the data
+      const quarterMileData = JSON.parse(fs.readFileSync(path.join(__dirname, '../data/quartermile.json'), 'utf8'));
+      let distanceType;
+      if(quarterMileData.length > 0){
+          const firstTime = quarterMileData[0].time;
+          const seconds = timeToSeconds(firstTime);
+          if (seconds !== null) {
+              if (seconds < 120) { //Roughly 2 minutes
+                  distanceType = '400m';
+              }
+              else{
+                  distanceType = '800m'
+              }
+          }
+      }
+    if (distanceType) {
+          for (const item of quarterMileData) {
+               if (!item.name || !item.time) {
+                      console.warn(`Skipping invalid entry in quartermile.json:`, item);
+                      continue;
+                  }
+              const seconds = timeToSeconds(item.time);
+               if (seconds === null) {
+                      console.warn(`Invalid time format in quartermile.json for entry:`, item);
+                      continue;
+                  }
+              const existingRecord = await collection.findOne({ name: item.name, type: LEADERBOARD_TYPES.METERS });
+               if (!existingRecord) {
+                      // Insert new record if it doesn't exist
+                      await collection.insertOne({ name: item.name, time: item.time, seconds: seconds, type: LEADERBOARD_TYPES.METERS });
+               }
+               else if (seconds < existingRecord.seconds){
+                    await collection.updateOne(
+                          { name: item.name, type: LEADERBOARD_TYPES.METERS },
+                          { $set: { seconds, time: item.time } }
+                      );
+               }
+          }
     }
-  if (distanceType) {
-        for (const item of quarterMileData) {
-             if (!item.name || !item.time) {
-                    console.warn(`Skipping invalid entry in quartermile.json:`, item);
-                    continue;
-                }
-            const seconds = timeToSeconds(item.time);
-             if (seconds === null) {
-                    console.warn(`Invalid time format in quartermile.json for entry:`, item);
-                    continue;
-                }
-            const existingRecord = await collection.findOne({ name: item.name, type: LEADERBOARD_TYPES.METERS });
-             if (!existingRecord) {
-                    // Insert new record if it doesn't exist
-                    await collection.insertOne({ name: item.name, time: item.time, seconds: seconds, type: LEADERBOARD_TYPES.METERS });
-             }
-             else if (seconds < existingRecord.seconds){
-                  await collection.updateOne(
-                        { name: item.name, type: LEADERBOARD_TYPES.METERS },
-                        { $set: { seconds, time: item.time } }
-                    );
-             }
-        }
+    else{
+      console.warn("Couldn't determine distance type for quartermile.json")
+    }
   }
-  else{
-    console.warn("Couldn't determine distance type for quartermile.json")
+  catch(error){
+    console.error("Error in loadInitialData", error)
   }
 }
 
@@ -179,28 +185,52 @@ module.exports = async (req, res) => {
     const collectionStats = await db.command({ collStats: 'leaderboard' });
     if (collectionStats.count === 0) {
       console.log('Database is empty. Loading initial data...');
-      await loadInitialData(db, leaderboardCollection);
+      try{
+        await loadInitialData(db, leaderboardCollection);
+      }
+      catch(e){
+        console.error("Error loading data", e)
+        return res.status(500).json({ error: 'Internal server error during initial data load.' });
+      }
     }
 
 
+    // Set CORS headers to allow requests from any origin
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization'); // Include common headers
+
+
+    if (req.method === 'OPTIONS') {
+      // Respond to preflight requests
+      res.status(200).end();
+      return;
+    }
+
     if (req.method === 'GET') {
       // Fetch leaderboards
-      const mileTimes = await leaderboardCollection.find({ type: LEADERBOARD_TYPES.MILE }).sort({ seconds: 1 }).toArray();
-      const halfMileTimes = await leaderboardCollection.find({ type: LEADERBOARD_TYPES.HALF_MILE }).sort({ seconds: 1 }).toArray();
-      const meterTimes = await leaderboardCollection.find({ type: LEADERBOARD_TYPES.METERS }).sort({ seconds: 1 }).toArray();
+      try{
+        const mileTimes = await leaderboardCollection.find({ type: LEADERBOARD_TYPES.MILE }).sort({ seconds: 1 }).toArray();
+        const halfMileTimes = await leaderboardCollection.find({ type: LEADERBOARD_TYPES.HALF_MILE }).sort({ seconds: 1 }).toArray();
+        const meterTimes = await leaderboardCollection.find({ type: LEADERBOARD_TYPES.METERS }).sort({ seconds: 1 }).toArray();
 
-      // Format times for display
-      const formatLeaderboard = (results) => results.map(item => ({
-        ...item,
-        time: formatTime(item.seconds),
-        bestTime: item.bestTime ? formatTime(item.bestTime) : undefined, // format bestTime if it exists
-      }));
+        // Format times for display
+        const formatLeaderboard = (results) => results.map(item => ({
+          ...item,
+          time: formatTime(item.seconds),
+          bestTime: item.bestTime ? formatTime(item.bestTime) : undefined, // format bestTime if it exists
+        }));
 
-      res.status(200).json({
-        mile: formatLeaderboard(mileTimes),
-        halfMile: formatLeaderboard(halfMileTimes),
-        meters: formatLeaderboard(meterTimes),
-      });
+        res.status(200).json({
+          mile: formatLeaderboard(mileTimes),
+          halfMile: formatLeaderboard(halfMileTimes),
+          meters: formatLeaderboard(meterTimes),
+        });
+      }
+      catch(error){
+        console.error("Error in GET", error)
+        return res.status(500).json({ error: 'Internal server error during GET.' });
+      }
     } else if (req.method === 'POST') {
       // Handle submission of new times
       const { name, time, distance } = req.body;
@@ -223,33 +253,39 @@ module.exports = async (req, res) => {
         return res.status(400).json({ error: 'Unrealistic time submitted.' });
       }
 
-      const existingRecord = await leaderboardCollection.findOne({ name, type: leaderboardType });
+      try{
+        const existingRecord = await leaderboardCollection.findOne({ name, type: leaderboardType });
 
-      if (existingRecord) {
-        if (seconds < existingRecord.seconds) {
-          // Update with new best time
-          await leaderboardCollection.updateOne(
-            { name, type: leaderboardType },
-            { $set: { seconds, time }, $unset: { worstTime: 1 } } // Remove worstTime
-          );
-          return res.status(200).json({ message: 'Personal best updated!' });
-        } else if (seconds > existingRecord.seconds) {
-          // Store the "worst" time, and keep bestTime
-          await leaderboardCollection.updateOne(
-            { name, type: leaderboardType },
-            {
-              $set: { worstTime: seconds }, // Store worstTime
-              $set: { bestTime: existingRecord.seconds, time: formatTime(existingRecord.seconds) }
-            }
-          );
-          return res.status(200).json({ message: 'Time added, but not a personal best.' });
+        if (existingRecord) {
+          if (seconds < existingRecord.seconds) {
+            // Update with new best time
+            await leaderboardCollection.updateOne(
+              { name, type: leaderboardType },
+              { $set: { seconds, time }, $unset: { worstTime: 1 } } // Remove worstTime
+            );
+            return res.status(200).json({ message: 'Personal best updated!' });
+          } else if (seconds > existingRecord.seconds) {
+            // Store the "worst" time, and keep bestTime
+            await leaderboardCollection.updateOne(
+              { name, type: leaderboardType },
+              {
+                $set: { worstTime: seconds }, // Store worstTime
+                $set: { bestTime: existingRecord.seconds, time: formatTime(existingRecord.seconds) }
+              }
+            );
+            return res.status(200).json({ message: 'Time added, but not a personal best.' });
+          } else {
+            return res.status(200).json({ message: 'Time is same as previous entry.' });
+          }
         } else {
-          return res.status(200).json({ message: 'Time is same as previous entry.' });
+          // Insert new record
+          await leaderboardCollection.insertOne({ name, time, seconds, type: leaderboardType });
+          return res.status(201).json({ message: 'Time added to leaderboard.' });
         }
-      } else {
-        // Insert new record
-        await leaderboardCollection.insertOne({ name, time, seconds, type: leaderboardType });
-        return res.status(201).json({ message: 'Time added to leaderboard.' });
+      }
+      catch(error){
+        console.error("Error in POST", error);
+        return res.status(500).json({ error: 'Internal server error during POST.' });
       }
     } else {
       res.status(405).json({ error: 'Method not allowed.' });
@@ -258,6 +294,12 @@ module.exports = async (req, res) => {
     console.error('Server error:', error);
     res.status(500).json({ error: 'Internal server error.' });
   } finally {
-    await client.close();
+    try{
+      await client.close();
+    }
+    catch(e){
+      console.error("Error closing client", e)
+    }
+
   }
 };
