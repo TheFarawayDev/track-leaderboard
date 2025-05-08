@@ -1,5 +1,9 @@
 // api/leaderboard.js
-const { MongoClient, ServerApiVersion } = require('mongodb');
+import { MongoClient, ServerApiVersion } from 'mongodb';
+import fs from 'fs'; // Use ES module syntax for fs
+import path from 'path';
+import { fileURLToPath } from 'url'; //Needed for __dirname
+
 const uri = `mongodb+srv://${process.env.MONGODB_USER}:${process.env.MONGODB_PASSWORD}@${process.env.MONGODB_CLUSTER}/track_times?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, {
   serverApi: {
@@ -78,104 +82,99 @@ const isRealisticTime = (distance, seconds) => {
 
 // Function to load initial data from JSON files
 async function loadInitialData(db, collection) {
-  const fs = require('fs');
-  const path = require('path');
+  try {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
 
-  // Helper function to read and process a single JSON file
+    // Helper function to read and process a single JSON file
     async function processFile(filePath, type) {
-        try {
-            const rawData = fs.readFileSync(filePath, 'utf8');
-            const data = JSON.parse(rawData);
+      try {
+        const rawData = fs.readFileSync(filePath, 'utf8');
+        const data = JSON.parse(rawData);
 
-             if (!Array.isArray(data)) {
-                  console.warn(`Data in ${filePath} is not an array. Skipping.`);
-                  return;
-             }
-
-            for (const item of data) {
-                if (!item.name || !item.time) {
-                    console.warn(`Skipping invalid entry in ${filePath}:`, item);
-                    continue;
-                }
-                const seconds = timeToSeconds(item.time);
-                if (seconds === null) {
-                    console.warn(`Invalid time format in ${filePath} for entry:`, item);
-                    continue;
-                }
-
-                // Check for existing record
-                const existingRecord = await collection.findOne({ name: item.name, type: type });
-                if (!existingRecord) {
-                    // Insert new record if it doesn't exist
-                    await collection.insertOne({ name: item.name, time: item.time, seconds: seconds, type: type });
-                }
-                else if (seconds < existingRecord.seconds){
-                     await collection.updateOne(
-                        { name: item.name, type: type },
-                        { $set: { seconds, time: item.time } }
-                    );
-                }
-            }
-        } catch (error) {
-            console.error(`Error processing file ${filePath}:`, error);
+        if (!Array.isArray(data)) {
+          console.warn(`Data in ${filePath} is not an array. Skipping.`);
+          return;
         }
+
+        for (const item of data) {
+          if (!item.name || !item.time) {
+            console.warn(`Skipping invalid entry in ${filePath}:`, item);
+            continue;
+          }
+          const seconds = timeToSeconds(item.time);
+          if (seconds === null) {
+            console.warn(`Invalid time format in ${filePath} for entry:`, item);
+            continue;
+          }
+
+          // Check for existing record
+          const existingRecord = await collection.findOne({ name: item.name, type: type });
+          if (!existingRecord) {
+            // Insert new record if it doesn't exist
+            await collection.insertOne({ name: item.name, time: item.time, seconds: seconds, type: type });
+          } else if (seconds < existingRecord.seconds) {
+            await collection.updateOne(
+              { name: item.name, type: type },
+              { $set: { seconds, time: item.time } }
+            );
+          }
+        }
+      } catch (error) {
+        console.error(`Error processing file ${filePath}:`, error);
+      }
     }
 
-  // Process each file.  Use path.join to handle relative paths correctly
-  try{
+    // Process each file.  Use path.join to handle relative paths correctly
     await processFile(path.join(__dirname, '../data/mile.json'), LEADERBOARD_TYPES.MILE);
     await processFile(path.join(__dirname, '../data/halfmile.json'), LEADERBOARD_TYPES.HALF_MILE);
 
-      // For quartermile.json, we need to determine if it's 400m or 800m based on the data
-      const quarterMileData = JSON.parse(fs.readFileSync(path.join(__dirname, '../data/quartermile.json'), 'utf8'));
-      let distanceType;
-      if(quarterMileData.length > 0){
-          const firstTime = quarterMileData[0].time;
-          const seconds = timeToSeconds(firstTime);
-          if (seconds !== null) {
-              if (seconds < 120) { //Roughly 2 minutes
-                  distanceType = '400m';
-              }
-              else{
-                  distanceType = '800m'
-              }
-          }
+    // For quartermile.json, we need to determine if it's 400m or 800m based on the data
+    const quarterMileData = JSON.parse(fs.readFileSync(path.join(__dirname, '../data/quartermile.json'), 'utf8'));
+    let distanceType;
+    if (quarterMileData.length > 0) {
+      const firstTime = quarterMileData[0].time;
+      const seconds = timeToSeconds(firstTime);
+      if (seconds !== null) {
+        if (seconds < 120) { //Roughly 2 minutes
+          distanceType = '400m';
+        } else {
+          distanceType = '800m'
+        }
       }
-    if (distanceType) {
-          for (const item of quarterMileData) {
-               if (!item.name || !item.time) {
-                      console.warn(`Skipping invalid entry in quartermile.json:`, item);
-                      continue;
-                  }
-              const seconds = timeToSeconds(item.time);
-               if (seconds === null) {
-                      console.warn(`Invalid time format in quartermile.json for entry:`, item);
-                      continue;
-                  }
-              const existingRecord = await collection.findOne({ name: item.name, type: LEADERBOARD_TYPES.METERS });
-               if (!existingRecord) {
-                      // Insert new record if it doesn't exist
-                      await collection.insertOne({ name: item.name, time: item.time, seconds: seconds, type: LEADERBOARD_TYPES.METERS });
-               }
-               else if (seconds < existingRecord.seconds){
-                    await collection.updateOne(
-                          { name: item.name, type: LEADERBOARD_TYPES.METERS },
-                          { $set: { seconds, time: item.time } }
-                      );
-               }
-          }
     }
-    else{
+    if (distanceType) {
+      for (const item of quarterMileData) {
+        if (!item.name || !item.time) {
+          console.warn(`Skipping invalid entry in quartermile.json:`, item);
+          continue;
+        }
+        const seconds = timeToSeconds(item.time);
+        if (seconds === null) {
+          console.warn(`Invalid time format in quartermile.json for entry:`, item);
+          continue;
+        }
+        const existingRecord = await collection.findOne({ name: item.name, type: LEADERBOARD_TYPES.METERS });
+        if (!existingRecord) {
+          // Insert new record if it doesn't exist
+          await collection.insertOne({ name: item.name, time: item.time, seconds: seconds, type: LEADERBOARD_TYPES.METERS });
+        } else if (seconds < existingRecord.seconds) {
+          await collection.updateOne(
+            { name: item.name, type: LEADERBOARD_TYPES.METERS },
+            { $set: { seconds, time: item.time } }
+          );
+        }
+      }
+    } else {
       console.warn("Couldn't determine distance type for quartermile.json")
     }
-  }
-  catch(error){
+  } catch (error) {
     console.error("Error in loadInitialData", error)
   }
 }
 
 // Main handler function for the Vercel API route
-module.exports = async (req, res) => {
+export default async (req, res) => { // Changed module.exports to export default
   try {
     await client.connect();
     const db = client.db('track_times');
@@ -185,10 +184,10 @@ module.exports = async (req, res) => {
     const collectionStats = await db.command({ collStats: 'leaderboard' });
     if (collectionStats.count === 0) {
       console.log('Database is empty. Loading initial data...');
-      try{
+      try {
         await loadInitialData(db, leaderboardCollection);
       }
-      catch(e){
+      catch (e) {
         console.error("Error loading data", e)
         return res.status(500).json({ error: 'Internal server error during initial data load.' });
       }
@@ -209,7 +208,7 @@ module.exports = async (req, res) => {
 
     if (req.method === 'GET') {
       // Fetch leaderboards
-      try{
+      try {
         const mileTimes = await leaderboardCollection.find({ type: LEADERBOARD_TYPES.MILE }).sort({ seconds: 1 }).toArray();
         const halfMileTimes = await leaderboardCollection.find({ type: LEADERBOARD_TYPES.HALF_MILE }).sort({ seconds: 1 }).toArray();
         const meterTimes = await leaderboardCollection.find({ type: LEADERBOARD_TYPES.METERS }).sort({ seconds: 1 }).toArray();
@@ -227,7 +226,7 @@ module.exports = async (req, res) => {
           meters: formatLeaderboard(meterTimes),
         });
       }
-      catch(error){
+      catch (error) {
         console.error("Error in GET", error)
         return res.status(500).json({ error: 'Internal server error during GET.' });
       }
@@ -253,7 +252,7 @@ module.exports = async (req, res) => {
         return res.status(400).json({ error: 'Unrealistic time submitted.' });
       }
 
-      try{
+      try {
         const existingRecord = await leaderboardCollection.findOne({ name, type: leaderboardType });
 
         if (existingRecord) {
@@ -283,7 +282,7 @@ module.exports = async (req, res) => {
           return res.status(201).json({ message: 'Time added to leaderboard.' });
         }
       }
-      catch(error){
+      catch (error) {
         console.error("Error in POST", error);
         return res.status(500).json({ error: 'Internal server error during POST.' });
       }
@@ -294,10 +293,10 @@ module.exports = async (req, res) => {
     console.error('Server error:', error);
     res.status(500).json({ error: 'Internal server error.' });
   } finally {
-    try{
+    try {
       await client.close();
     }
-    catch(e){
+    catch (e) {
       console.error("Error closing client", e)
     }
 
