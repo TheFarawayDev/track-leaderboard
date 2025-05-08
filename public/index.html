@@ -1,197 +1,196 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Track Leaderboards</title>
-  <style>
-    :root {
-      --primary: #1e3a8a;
-      --bg: #f3f4f6;
-      --accent: #2563eb;
-      --text: #111827;
-    }
-
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background-color: var(--bg);
-      color: var(--text);
-    }
-
-    header {
-      background-color: var(--primary);
-      padding: 1rem;
-      text-align: center;
-      color: white;
-      font-size: 1.5rem;
-    }
-
-    nav {
-      display: flex;
-      justify-content: center;
-      gap: 1rem;
-      margin-top: 1rem;
-    }
-
-    nav a {
-      color: var(--accent);
-      text-decoration: none;
-      font-weight: bold;
-    }
-
-    .container {
-      max-width: 800px;
-      margin: 2rem auto;
-      background: white;
-      padding: 1.5rem;
-      border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 1rem;
-    }
-
-    th, td {
-      padding: 0.75rem;
-      border-bottom: 1px solid #ccc;
-      text-align: left;
-    }
-
-    footer {
-      text-align: center;
-      padding: 1rem;
-      background-color: #e5e7eb;
-      margin-top: 2rem;
-    }
-
-    .pagination {
-      display: flex;
-      justify-content: center;
-      gap: 0.5rem;
-      margin-top: 1rem;
-    }
-
-    .pagination button {
-      background: var(--accent);
-      color: white;
-      border: none;
-      padding: 0.5rem 1rem;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-
-    .form-section input {
-      padding: 0.5rem;
-      margin: 0.5rem 0;
-      width: 100%;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-    }
-
-    .form-section button {
-      background-color: var(--primary);
-      color: white;
-      padding: 0.5rem 1rem;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-
-    .distance-tabs {
-      display: flex;
-      justify-content: center;
-      gap: 1rem;
-      margin-top: 1rem;
-    }
-
-    .distance-tabs button {
-      padding: 0.5rem 1rem;
-      background: var(--primary);
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Track Leaderboards</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@tailwindcss/browser@latest"></script>
+    <style>
+      /* Custom styles for the message box */
+      #message-box {
+        display: none;
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: #f0fdf4;
+        color: #15803d;
+        padding: 16px;
+        border-radius: 6px;
+        border: 1px solid #16a34a;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        z-index: 10;
+      }
+      #message-box.show {
+        display: block;
+      }
+      #message-box.error {
+        background-color: #fee2e2;
+        color: #dc2626;
+        border-color: #dc2626;
+      }
+    </style>
 </head>
-<body>
-  <header>Track Leaderboards</header>
-  <nav>
-    <a href="index.html">Leaderboard</a>
-    <a href="submit.html">Submit Time</a>
-  </nav>
+<body class="bg-gray-100 font-inter">
+    <div class="container mx-auto p-4">
+        <h1 class="text-3xl font-semibold text-center text-gray-800 mb-8">Track Leaderboards</h1>
 
-  <div class="container">
-    <div class="distance-tabs">
-      <button onclick="loadLeaderboard('mile')">Mile</button>
-      <button onclick="loadLeaderboard('halfmile')">Half Mile</button>
-      <button onclick="loadLeaderboard('quartermile')">Quarter Mile</button>
+        <div id="message-box" class="hidden"></div>
+
+        <section id="mile-leaderboard" class="mb-8">
+            <h2 class="text-2xl font-semibold text-gray-700 mb-4 text-center">Mile Leaderboard</h2>
+            <div class="bg-white shadow-md rounded-md overflow-hidden">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Best Time</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200" id="mile-table-body">
+                        <tr>
+                            <td colspan="2" class="px-6 py-4 text-center text-gray-500">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="half-mile-leaderboard" class="mb-8">
+            <h2 class="text-2xl font-semibold text-gray-700 mb-4 text-center">Half-Mile Leaderboard</h2>
+            <div class="bg-white shadow-md rounded-md overflow-hidden">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Best Time</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200" id="half-mile-table-body">
+                        <tr>
+                            <td colspan="2" class="px-6 py-4 text-center text-gray-500">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="meters-leaderboard" class="mb-8">
+            <h2 class="text-2xl font-semibold text-gray-700 mb-4 text-center">400m/800m Leaderboard</h2>
+            <div class="bg-white shadow-md rounded-md overflow-hidden">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Best Time</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200" id="meters-table-body">
+                        <tr>
+                            <td colspan="2" class="px-6 py-4 text-center text-gray-500">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <footer class="mt-8 text-center text-gray-500 text-sm">
+            <p>Enter code to submit time: <input type="text" id="submission-code" class="border border-gray-300 rounded-md px-2 py-1 ml-2 focus:outline-none focus:ring-2 focus:ring-blue-500"></p>
+            <p id="submission-message" class="mt-2 text-blue-500 font-semibold"></p>
+        </footer>
     </div>
 
-    <div id="leaderboard"></div>
-    <div class="pagination" id="pagination"></div>
-  </div>
+    <script>
+    const leaderboardTypes = {
+        MILE: 'mile',
+        HALF_MILE: 'half_mile',
+        METERS: 'meters',
+    };
 
-  <footer>Track Leaderboard App</footer>
+    const submissionCodes = {
+        [leaderboardTypes.MILE]: 'milecode', // Example code for mile submissions
+        [leaderboardTypes.HALF_MILE]: 'halfmilecode',
+        [leaderboardTypes.METERS]: 'metercode',
+    };
 
-  <script>
-    const SERVER = 'https://track-leaderboard.vercel.app';
-    let currentDistance = 'mile';
-    let page = 0;
-    const pageSize = 10;
+    function showMessage(message, type = 'success') {
+        const messageBox = document.getElementById('message-box');
+        messageBox.textContent = message;
+        messageBox.className = `fixed top-4 left-1/2 transform -translate-x-1/2 bg-${type === 'success' ? 'green' : 'red'}-100 text-${type === 'success' ? 'green' : 'red'}-700 border border-${type === 'success' ? 'green' : 'red'}-400 px-4 py-2 rounded shadow-md`;
+        messageBox.classList.add('show');
+        setTimeout(() => {
+            messageBox.classList.remove('show');
+        }, 5000); // Auto-hide after 5 seconds
+    }
 
-    function loadLeaderboard(distance) {
-      currentDistance = distance;
-      page = 0;
-      fetch(`${SERVER}/api/leaderboard?distance=${distance}`)
-        .then(res => res.json())
-        .then(data => {
-          const sorted = data.sort((a, b) => a.time - b.time);
-          renderTable(sorted.slice(page * pageSize, (page + 1) * pageSize));
-          renderPagination(sorted.length);
+    function populateLeaderboard(type, data) {
+        const tableBodyId = `${type}-table-body`;
+        const tableBody = document.getElementById(tableBodyId);
+        if (!tableBody) return;
+
+        if (data && data.length > 0) {
+            tableBody.innerHTML = data.map(item => `
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${item.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item.time}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item.bestTime || '-'}</td>
+                </tr>
+            `).join('');
+        } else {
+            tableBody.innerHTML = `<tr><td colspan="3" class="px-6 py-4 text-center text-gray-500">No data available.</td></tr>`;
+        }
+    }
+
+    async function fetchLeaderboards() {
+        try {
+            const response = await fetch('/api/leaderboard');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            populateLeaderboard(leaderboardTypes.MILE, data.mile);
+            populateLeaderboard(leaderboardTypes.HALF_MILE, data.halfMile);
+            populateLeaderboard(leaderboardTypes.METERS, data.meters);
+        } catch (error) {
+            console.error('Error fetching leaderboards:', error);
+            showMessage('Failed to load leaderboards. Please check your network connection.', 'error');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        fetchLeaderboards(); // Initial load
+
+        const submissionCodeInput = document.getElementById('submission-code');
+        const submissionMessage = document.getElementById('submission-message');
+
+        submissionCodeInput.addEventListener('keypress', async (event) => {
+            if (event.key === 'Enter') {
+                const code = submissionCodeInput.value.trim();
+                let targetDistance = null;
+
+                for (const [distance, validCode] of Object.entries(submissionCodes)) {
+                    if (code === validCode) {
+                        targetDistance = distance;
+                        break;
+                    }
+                }
+
+                if (targetDistance) {
+                    submissionMessage.textContent = `Submitting ${targetDistance} time...`;
+                    submissionCodeInput.value = ''; // Clear input
+                    // Redirect to submission page with the distance as a query parameter
+                    window.location.href = `submit.html?distance=${targetDistance}`;
+
+                } else {
+                    submissionMessage.textContent = 'Invalid code. Please try again.';
+                }
+            }
         });
-    }
-
-    function renderTable(data) {
-      const container = document.getElementById('leaderboard');
-      container.innerHTML = `
-        <table>
-          <thead>
-            <tr><th>Rank</th><th>Name</th><th>Time</th><th>Best</th></tr>
-          </thead>
-          <tbody>
-            ${data.map((row, i) => `
-              <tr>
-                <td>${page * pageSize + i + 1}</td>
-                <td>${row.name}</td>
-                <td>${row.time}</td>
-                <td>${row.bestTime || '-'}</td>
-              </tr>`).join('')}
-          </tbody>
-        </table>
-      `;
-    }
-
-    function renderPagination(total) {
-      const pag = document.getElementById('pagination');
-      const pages = Math.ceil(total / pageSize);
-      pag.innerHTML = Array.from({ length: pages }, (_, i) => `
-        <button onclick="goToPage(${i})">${i + 1}</button>
-      `).join('');
-    }
-
-    function goToPage(p) {
-      page = p;
-      loadLeaderboard(currentDistance);
-    }
-
-    // Load default
-    loadLeaderboard(currentDistance);
-  </script>
+    });
+    </script>
 </body>
 </html>
-
