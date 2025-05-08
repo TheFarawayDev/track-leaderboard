@@ -1,5 +1,26 @@
 {
-  "name": "track-leaderboard",
+  "name": "track-leaderboard-api",
   "version": "1.0.0",
-  "type": "module"
+  "description": "API for track time leaderboards",
+  "type": "module",
+  "main": "api/leaderboard.js",
+  "scripts": {
+    "start": "node api/leaderboard.js",
+    "dev": "nodemon api/leaderboard.js"
+  },
+  "keywords": [
+    "leaderboard",
+    "track",
+    "time",
+    "api",
+    "mongodb"
+  ],
+  "author": "You",
+  "license": "MIT",
+  "dependencies": {
+    "mongodb": "^6.4.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
+  }
 }
