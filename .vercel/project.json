@@ -1,1 +1,18 @@
-
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/leaderboard.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/api/leaderboard",
+      "dest": "api/leaderboard.js"
+    }
+  ]
+}
